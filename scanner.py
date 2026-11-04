@@ -21,6 +21,7 @@ from common import (
     PUSH_MIN, SMS_MIN, load_json, load_universe, log, money, name_index, notify, save_json,
     state_exists,
 )
+from sources_alpaca import refresh_quotes
 from sources_awards import dod_signals, usaspending_signals
 from sources_news import edgar_signals, pr_signals
 from sources_volume import ET, refresh_avgvol, volume_signals
@@ -167,6 +168,7 @@ def run(args) -> int:
         return 1
     idx = name_index(uni)
     log(f"universe: {len(uni)} tickers; first_run={first_run}")
+    refresh_quotes(uni)  # prices/volume from Alpaca delayed SIP (max ~15 min old); no-op without keys
 
     seen: dict = load_json("seen.json", {})
     sigs: list[dict] = load_json("signals.json", [])

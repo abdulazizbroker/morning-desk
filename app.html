@@ -256,6 +256,7 @@ button { cursor: pointer; }
           <label>Feed
             <select id="feed">
               <option value="iex">Free (IEX exchange only, 30 symbols)</option>
+              <option value="delayed_sip">Free delayed (all exchanges, 15 min late, 30 symbols)</option>
               <option value="sip">Paid (all US exchanges)</option>
             </select>
           </label>
@@ -606,7 +607,7 @@ button { cursor: pointer; }
       let arr; try { arr = JSON.parse(ev.data); } catch { return; }
       for (const m of arr) {
         if (m.T === 'success' && m.msg === 'connected') ws.send(JSON.stringify({ action: 'auth', key, secret }));
-        else if (m.T === 'success' && m.msg === 'authenticated') { ws.send(JSON.stringify({ action: 'subscribe', trades: T.syms, quotes: T.syms })); T.retry = 0; tstatus('ok', 'Live on ' + (feed === 'iex' ? 'IEX' : 'all exchanges') + ', ' + T.syms.length + ' symbols'); }
+        else if (m.T === 'success' && m.msg === 'authenticated') { ws.send(JSON.stringify({ action: 'subscribe', trades: T.syms, quotes: T.syms })); T.retry = 0; tstatus('ok', 'Live on ' + (feed === 'iex' ? 'IEX' : feed === 'delayed_sip' ? 'all exchanges, 15 min delayed' : 'all exchanges') + ', ' + T.syms.length + ' symbols'); }
         else if (m.T === 'error') { T.want = false; tstatus('bad', 'Alpaca says: ' + (m.msg || 'error') + (m.code ? ' (' + m.code + ')' : '') + (m.code === 406 ? '. Close other tabs or apps using this key.' : '')); }
         else if (m.T === 't') { const b = T.books.get(m.S); if (b) b.trade(+m.p, +m.s); }
         else if (m.T === 'q') { const b = T.books.get(m.S); if (b) b.quote(+m.bp, +m.ap); }
@@ -621,7 +622,7 @@ button { cursor: pointer; }
   }
   function connect() {
     const key = $('#key').value.trim(), secret = $('#secret').value.trim(), feed = $('#feed').value;
-    const syms = parseSyms($('#symbols').value).slice(0, feed === 'iex' ? 30 : 200);
+    const syms = parseSyms($('#symbols').value).slice(0, feed === 'sip' ? 200 : 30);
     if (!key || !secret) { tstatus('bad', 'Enter your Alpaca key and secret first'); return; }
     if (!syms.length) { tstatus('bad', 'Add at least one symbol'); return; }
     store.set('key', key); store.set('secret', secret); store.set('feed', feed); store.set('symbols', syms.join(', '));

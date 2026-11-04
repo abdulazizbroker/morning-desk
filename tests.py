@@ -125,4 +125,9 @@ for i in range(30):
     mixed.trade(2.02 if i % 2 else 2.00, 400, t0 + i)  # heavy but balanced
 assert surge(mixed.stats(t0 + 31)) is None
 
+from sources_alpaca import parse_snapshot
+_p, _v, _pct = parse_snapshot({"latestTrade": {"p": 1.10}, "dailyBar": {"v": 5000, "c": 1.09}, "prevDailyBar": {"c": 1.00}})
+assert (_p, _v) == (1.10, 5000) and abs(_pct - 10.0) < 1e-9, (_p, _v, _pct)
+assert parse_snapshot({}) == (None, None, None)
+
 print("all offline tests passed")
