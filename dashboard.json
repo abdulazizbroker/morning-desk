@@ -1,0 +1,176 @@
+{
+ "demo": true,
+ "generated": "2026-11-04T10:42:00+00:00",
+ "health": {
+  "8k": 14,
+  "dod": 3,
+  "pr": 22,
+  "volume": 9,
+  "awards": 6
+ },
+ "queue": [
+  {
+   "ts": "2026-11-03T22:10:00+00:00",
+   "score": 6.0,
+   "title": "BULLISH QBLT +6.0",
+   "line": "BULLISH QBLT +6.0 | mcap $48.2M $1.84"
+  },
+  {
+   "ts": "2026-11-04T01:30:00+00:00",
+   "score": 6.0,
+   "title": "BEARISH NVLX -5.0",
+   "line": "BEARISH NVLX -5.0 | mcap $22.9M $0.61"
+  }
+ ],
+ "rows": [
+  {
+   "ticker": "ZPHC",
+   "name": "Zenith Photonics Corp.",
+   "score": 8.0,
+   "dir": "BULLISH",
+   "price": 2.5,
+   "mcap": 80000000,
+   "pct": 1.5,
+   "setup": "NOT PRICED IN?: news plus heavy volume while price barely moved. Highest-interest pattern; read the source.",
+   "signals": [
+    {
+     "kind": "DOD",
+     "pts": 4.0,
+     "text": "DoD contract $9.9M (12.5% of mcap) SOLE-SOURCE [exact match] Zenith Photonics Corp., Austin, Texas, has been awarded a firm-fixed-price contract for laser components",
+     "url": "https://www.war.gov/News/Contracts/",
+     "ts": "2026-11-03T22:05:00+00:00"
+    },
+    {
+     "kind": "VOL",
+     "pts": 3.0,
+     "text": "RVOL 9.4x (846,000 sh, $2.1M) price +1.5% | STEALTH: heavy volume, price barely moved",
+     "url": "",
+     "ts": "2026-11-04T10:20:00+00:00"
+    },
+    {
+     "kind": "8K",
+     "pts": 1.0,
+     "text": "8-K items 1.01, 9.01: material agreement (check: deal or financing?)",
+     "url": "https://www.sec.gov/",
+     "ts": "2026-11-04T09:58:00+00:00"
+    }
+   ]
+  },
+  {
+   "ticker": "QBLT",
+   "name": "Quantum Bolt Industries, Inc.",
+   "score": 6.0,
+   "dir": "BULLISH",
+   "price": 1.84,
+   "mcap": 48200000,
+   "pct": 22.4,
+   "setup": "ALREADY RAN: +22% already. Chasing risk; consider waiting for a pullback.",
+   "signals": [
+    {
+     "kind": "PR",
+     "pts": 3.0,
+     "text": "PR [FDA/regulatory win]: Quantum Bolt receives FDA 510(k) clearance for its flow sensor",
+     "url": "https://www.prnewswire.com/",
+     "ts": "2026-11-03T21:45:00+00:00"
+    },
+    {
+     "kind": "VOL",
+     "pts": 3.0,
+     "text": "RVOL 14.2x (3,120,000 sh, $5.7M) price +22.4%",
+     "url": "",
+     "ts": "2026-11-04T10:30:00+00:00"
+    }
+   ]
+  },
+  {
+   "ticker": "AGRN",
+   "name": "Agrion Therapeutics",
+   "score": 4.0,
+   "dir": "BULLISH",
+   "price": 0.93,
+   "mcap": 31500000,
+   "pct": 3.2,
+   "setup": "CONTRACT NOT MOVED YET: large vs market cap, price flat. Check liquidity and spread.",
+   "signals": [
+    {
+     "kind": "AWARD",
+     "pts": 4.0,
+     "text": "Grant $3.4M (10.8% of mcap) from Department of Health and Human Services [exact match: Agrion Therapeutics]",
+     "url": "https://www.usaspending.gov/",
+     "ts": "2026-11-03T14:00:00+00:00"
+    }
+   ]
+  },
+  {
+   "ticker": "SOLT",
+   "name": "Solterra Power",
+   "score": 3.0,
+   "dir": "BULLISH",
+   "price": 4.12,
+   "mcap": 212000000,
+   "pct": 0.4,
+   "setup": "CATALYST: confirm the price and volume reaction before acting.",
+   "signals": [
+    {
+     "kind": "PR",
+     "pts": 3.0,
+     "text": "PR [contract/award, gov customer]: Solterra Power wins $6M Department of Energy storage task order",
+     "url": "https://www.prnewswire.com/",
+     "ts": "2026-11-04T09:10:00+00:00"
+    }
+   ]
+  },
+  {
+   "ticker": "PRVA",
+   "name": "Prevail Analytics",
+   "score": 2.0,
+   "dir": "BULLISH",
+   "price": 7.35,
+   "mcap": 390000000,
+   "pct": 5.8,
+   "setup": "MOMENTUM, NO CATALYST FOUND: check news manually before trusting it.",
+   "signals": [
+    {
+     "kind": "VOL",
+     "pts": 2.0,
+     "text": "RVOL 5.6x (1,400,000 sh, $10.3M) price +5.8%",
+     "url": "",
+     "ts": "2026-11-04T10:15:00+00:00"
+    }
+   ]
+  },
+  {
+   "ticker": "NVLX",
+   "name": "Novalux Biosciences",
+   "score": -6.0,
+   "dir": "BEARISH",
+   "price": 0.61,
+   "mcap": 22900000,
+   "pct": -9.1,
+   "setup": "FADE/AVOID: dilution or distress signal. Do not chase.",
+   "signals": [
+    {
+     "kind": "PR",
+     "pts": -3.0,
+     "text": "PR [DILUTION]: Novalux prices $6M registered direct offering",
+     "url": "https://www.prnewswire.com/",
+     "ts": "2026-11-04T01:20:00+00:00"
+    },
+    {
+     "kind": "8K",
+     "pts": -2.0,
+     "text": "8-K items 3.02: unregistered equity sale (dilution)",
+     "url": "https://www.sec.gov/",
+     "ts": "2026-11-04T01:28:00+00:00"
+    },
+    {
+     "kind": "VOL",
+     "pts": -1.0,
+     "text": "RVOL 3.4x price -9.1%",
+     "url": "",
+     "ts": "2026-11-04T10:00:00+00:00"
+    }
+   ]
+  }
+ ]
+}
