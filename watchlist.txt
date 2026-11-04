@@ -1,0 +1,2 @@
+# Optional. Only used if the Nasdaq screener is blocked from your scheduler.
+# One ticker per line.

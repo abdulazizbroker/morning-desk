@@ -1,0 +1,13 @@
+# One press-release RSS feed per line. Add more wires here (GlobeNewswire, Business Wire, ...).
+# PR Newswire feeds below were confirmed from PR Newswire's own RSS page.
+https://www.prnewswire.com/rss/news-releases-list.rss
+https://www.prnewswire.com/rss/health-latest-news/health-latest-news-list.rss
+https://www.prnewswire.com/rss/general-business-latest-news/general-business-latest-news-list.rss
+https://www.prnewswire.com/rss/business-technology-latest-news/business-technology-latest-news-list.rss
+https://www.prnewswire.com/rss/financial-services-latest-news/financial-services-latest-news-list.rss
+https://www.prnewswire.com/rss/automotive-transportation-latest-news/automotive-transportation-latest-news-list.rss
+https://www.prnewswire.com/rss/consumer-products-retail-latest-news/consumer-products-retail-latest-news-list.rss
+# GlobeNewswire: feeds follow https://www.globenewswire.com/RssFeed/subjectcode/<code>-<Name>/feedTitle/<Title>
+# Pick subjects at globenewswire.com/rssfeed and paste the URLs here. Many micro-caps use GlobeNewswire,
+# so adding a few is worth it. Example (verified format, but dividends are not very useful):
+# https://www.globenewswire.com/RssFeed/subjectcode/12-Dividend%20Reports%20And%20Estimates/feedTitle/GlobeNewswire%20-%20Dividend%20Reports%20And%20Estimates
