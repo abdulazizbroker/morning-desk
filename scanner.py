@@ -18,14 +18,15 @@ from dataclasses import asdict
 from datetime import datetime, timedelta, timezone
 
 from common import (
-    PUSH_MIN, SMS_MIN, load_json, load_universe, log, money, name_index, notify, save_json,
+    PUSH_MIN, SMS_MIN, _f, load_json, load_universe, log, money, name_index, notify, save_json,
     state_exists,
 )
 from sources_alpaca import refresh_quotes, tradable_symbols
 from sources_awards import dod_signals, usaspending_signals
 from sources_news import edgar_signals, pr_signals
-from sources_volume import ET, refresh_avgvol, volume_signals
+from sources_volume import ET, gap_signals, gapper_rows, refresh_avgvol, volume_signals
 
+EARLY_MAX_PCT = _f("EARLY_MAX_PCT", 10.0)  # bullish pings only while the price is under this today
 AWARD_HOURS = {int(x) for x in os.getenv("AWARD_HOURS", "12,22").split(",") if x.strip()}  # UTC
 MAX_UNIVERSE = 4500
 
@@ -55,18 +56,19 @@ def direction(total: float, pos: float, neg: float) -> str:
 
 
 def stage_of(co, sigs: list[dict], total: float) -> tuple[str, float]:
-    """EARLY = real catalyst news but the price has barely moved (the one you want to catch).
+    """EARLY = real catalyst or unusual pre-move volume, but the price has barely moved.
     RUNNING = already up big (chasing). AVOID = bearish. WATCH = everything else.
-    Second value ranks the EARLY list: stronger catalyst + flatter price + heavy volume first."""
+    Second value ranks the EARLY list: stronger signals + flatter price + heavy volume first."""
     pct = co.pct if co is not None and co.pct is not None else 0.0
     catalyst = any(s["kind"] in ("DOD", "AWARD", "PR", "8K") and s["pts"] > 0 for s in sigs)
     stealth = any("STEALTH" in s["text"] for s in sigs)
+    gap = any(s["kind"] == "GAP" and s["pts"] > 0 for s in sigs)
     if total <= -2:
         return "AVOID", 0.0
     if pct >= 15:
         return "RUNNING", 0.0
-    if catalyst and total >= 2 and pct < 8:
-        early = total + (1.0 if abs(pct) < 3 else 0.0) + (1.5 if stealth else 0.0)
+    if (catalyst or stealth or gap) and total >= 2 and pct < EARLY_MAX_PCT:
+        early = total + (1.0 if abs(pct) < 3 else 0.0) + (1.5 if stealth else 0.0) + (1.0 if gap else 0.0)
         return "EARLY", round(early, 1)
     return "WATCH", 0.0
 
@@ -90,7 +92,7 @@ def setup_label(co, sigs, total, pos, neg) -> str:
         return f"ALREADY RAN: +{pct:.0f}% already. Chasing risk; consider waiting for a pullback."
     if catalyst:
         return "CATALYST: confirm the price and volume reaction before acting."
-    if "VOL" in kinds:
+    if "VOL" in kinds or "GAP" in kinds:
         return "MOMENTUM, NO CATALYST FOUND: check news manually before trusting it."
     return ""
 
@@ -198,11 +200,11 @@ def run(args) -> int:
     av = load_json("avgvol.json", {"asof": None, "data": {}})
 
     stale = (not av["asof"]) or (now - datetime.fromisoformat(av["asof"])) > timedelta(hours=20)
-    wanted_all = {"awards", "dod", "pr", "8k", "volume"}
+    wanted_all = {"awards", "dod", "pr", "8k", "volume", "gap"}
     if args.sources:
         wanted = set(args.sources.split(","))
     else:
-        wanted = {"dod", "pr", "8k", "volume"} | ({"awards"} if now.hour in AWARD_HOURS else set())
+        wanted = {"dod", "pr", "8k", "volume", "gap"} | ({"awards"} if now.hour in AWARD_HOURS else set())
     if "volume" in wanted and stale:
         log("refreshing 20-day average volumes (once a day)...")
         data = refresh_avgvol(sorted(uni, key=lambda t: -(uni[t].mcap or 0))[:MAX_UNIVERSE])
@@ -216,6 +218,7 @@ def run(args) -> int:
         "pr": lambda: pr_signals(uni, idx),
         "8k": lambda: edgar_signals(uni),
         "volume": lambda: volume_signals(uni, av["data"], now_et),
+        "gap": lambda: gap_signals(uni, av["data"], now_et),
     }
     new, health = [], {}
     for name in sorted(wanted & wanted_all):
@@ -258,7 +261,14 @@ def run(args) -> int:
             same_sign = (last["score"] > 0) == (total > 0)
             if age < 24 and same_sign and abs(total) - abs(last["score"]) < 1.5:
                 continue
+        stg, _early = stage_of(uni.get(t), by_t[t], total)
+        if total > 0 and stg != "EARLY":  # never ping a bullish name that already ran or has no early trigger
+            log(f"skip ping {t}: stage {stg}, +{(uni[t].pct or 0):.1f}% today" if t in uni else f"skip ping {t}")
+            continue
         title, short, long = build_alert(t, uni.get(t), by_t[t], total, pos, neg, keys)
+        if total > 0:
+            title, short = "EARLY " + title, "EARLY " + short
+            long += f"\nEARLY: only {(uni[t].pct or 0):+.1f}% so far today (prices ~15 min delayed). Check the chart before acting."
         if args.dry:
             log("[dry]", long)
         else:
@@ -297,6 +307,7 @@ def run(args) -> int:
             json.dump({
                 "generated": now.isoformat(), "health": health, "rows": rows[:80],
                 "queue": load_json("queue.json", [])[-10:],
+                "gappers": gapper_rows(uni, av["data"]),
             }, f)
     force = "morning" if getattr(args, "brief", False) else "wrap" if getattr(args, "wrap", False) else None
     if not args.dry and (not first_run or force):

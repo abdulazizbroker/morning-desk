@@ -138,4 +138,15 @@ assert stage_of(Co("A", "A", None, 1e7, 1, 1, 1.0), [_sig("DOD", 4)], 4)[0] == "
 assert stage_of(Co("A", "A", None, 1e7, 1, 1, 40.0), [_sig("DOD", 4)], 4)[0] == "RUNNING"
 assert stage_of(Co("A", "A", None, 1e7, 1, 1, 1.0), [_sig("8K", -3)], -3)[0] == "AVOID"
 assert stage_of(Co("A", "A", None, 1e7, 1, 1, 1.0), [_sig("VOL", 2)], 2)[0] == "WATCH"
+from sources_volume import gap_signals, gap_tier, gapper_rows
+assert gap_tier(5.0, 0.3) == "EARLY" and gap_tier(12.0, 0.3) == "GAPPED" and gap_tier(40.0, 1.0) == "RAN"
+assert gap_tier(1.0, 1.0) is None and gap_tier(5.0, 0.01) is None and gap_tier(None, 1.0) is None
+_u = {"EAR": Co("EAR", "Early Inc", None, 2e7, 2.0, 400_000, 5.0), "RAN": Co("RAN", "Ran Inc", None, 2e7, 2.0, 900_000, 60.0)}
+_av = {"EAR": 1_000_000.0, "RAN": 1_000_000.0}
+assert [r["ticker"] for r in gapper_rows(_u, _av)] == ["EAR", "RAN"]
+_premkt = datetime(2026, 11, 4, 7, 0, tzinfo=ET)
+_gs = gap_signals(_u, _av, _premkt)
+assert [s.ticker for s in _gs] == ["EAR"] and gap_signals(_u, _av, datetime(2026, 11, 4, 13, 0, tzinfo=ET)) == []
+assert stage_of(Co("A", "A", None, 1e7, 1, 1, 9.0), [_sig("GAP", 2)], 2)[0] == "EARLY"
+assert stage_of(Co("A", "A", None, 1e7, 1, 1, 12.0), [_sig("GAP", 2)], 2)[0] == "WATCH"
 print("all offline tests passed")

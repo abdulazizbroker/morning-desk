@@ -234,6 +234,7 @@ button { cursor: pointer; }
         </label>
         <div class="chips" id="chips" role="group" aria-label="Filter">
           <button class="chip" data-f="early" aria-pressed="true">Early</button>
+          <button class="chip" data-f="gap" aria-pressed="false">Gappers</button>
           <button class="chip" data-f="running" aria-pressed="false">Already running</button>
           <button class="chip" data-f="all" aria-pressed="false">All</button>
           <button class="chip" data-f="bull" aria-pressed="false">Bullish</button>
@@ -319,7 +320,7 @@ button { cursor: pointer; }
   const px = x => x == null ? 'n/a' : '$' + (x < 1 ? x.toFixed(4) : x.toFixed(2));
   const num = n => n >= 1e6 ? (n / 1e6).toFixed(2) + 'M' : n >= 1e3 ? (n / 1e3).toFixed(1) + 'k' : String(Math.round(n));
   const ago = ms => { const m = Math.round(ms / 60000); return m < 1 ? 'just now' : m < 60 ? m + ' min ago' : m < 2880 ? Math.round(m / 60) + ' h ago' : Math.round(m / 1440) + ' d ago'; };
-  const KIND = { AWARD: 'Award', DOD: 'DoD', PR: 'Press', '8K': '8-K', VOL: 'Volume' };
+  const KIND = { AWARD: 'Award', DOD: 'DoD', PR: 'Press', '8K': '8-K', VOL: 'Volume', GAP: 'Gap' };
 
   /* ---------- market session (New York time, which is Toronto time) ---------- */
   const etFmt = new Intl.DateTimeFormat('en-US', { timeZone: 'America/New_York', weekday: 'short', hour: 'numeric', minute: 'numeric', hour12: false });
@@ -433,6 +434,27 @@ button { cursor: pointer; }
       const ok = typeof h[k] === 'number';
       return `<span class="pill ${ok ? '' : 'down'}" title="${ok ? h[k] + ' signals' : esc(String(h[k]))}">${esc(k)} ${ok ? h[k] : 'error'}</span>`;
     }).join('');
+    if (filter === 'gap') renderGappers();
+  }
+  function gapHtml(g) {
+    const tag = { EARLY: 'Early gap', GAPPED: 'Gapped', RAN: 'Already ran' }[g.tier] || g.tier;
+    return `<article class="row" data-t="${esc(g.ticker)}" data-open="1">
+      <div class="row-head">
+        <div class="tk"><b>${esc(g.ticker)}</b><span>${esc(g.name)}</span></div>
+        <div class="sc"><span class="n up">+${(+g.pct).toFixed(1)}% gap</span></div>
+        <div class="setup"><span class="pill ${g.tier === 'EARLY' ? 'up' : ''}">${esc(tag)}</span> <span class="pill">${Math.round(g.vx * 100)}% of a normal day's volume</span></div>
+        <div class="px"><b>${px(g.price)}</b>${money(g.mcap)}</div>
+      </div>
+      <div class="acts" style="padding:0 16px 14px">${links(g.ticker).map(([n, h]) => `<a class="btn small" href="${esc(h)}" target="_blank" rel="noopener">${esc(n)}</a>`).join('')}
+        <button class="btn small primary" type="button" data-act="watch" data-t="${esc(g.ticker)}">Watch live</button></div>
+    </article>`;
+  }
+  function renderGappers() {
+    const g = DATA.gappers || [], list = $('#list');
+    $('#summary').innerHTML = g.length
+      ? `<b>${g.length}</b> gapping up on unusual volume. Early gaps (under 10%) come first; "Already ran" ones are last, so skip those.`
+      : 'No gappers right now. This list fills in pre-market and at the open.';
+    list.innerHTML = g.length ? g.map(gapHtml).join('') : '<div class="empty"><h3>No gappers yet</h3><p>Names gapping up on heavy volume show here from about 5am Toronto time.</p></div>';
   }
   function paintFresh() {
     const el = $('#fresh');

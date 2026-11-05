@@ -5,7 +5,7 @@ import time
 from datetime import datetime
 from zoneinfo import ZoneInfo
 
-from common import MIN_AVG_VOL, MIN_DOLLAR_VOL, Signal, log, money
+from common import MIN_AVG_VOL, MIN_DOLLAR_VOL, Signal, _f, log, money
 
 ET = ZoneInfo("America/New_York")
 
@@ -82,4 +82,63 @@ def volume_signals(uni, avgvol: dict[str, float], now_et: datetime) -> list[Sign
             ))
         if stealth:
             out.append(Signal(t, "VOL", f"VOL:{t}:{day}:stealth", 1.0, "stealth volume bonus"))
+    return out
+
+
+# ---------------- gappers (pre-market / opening) ----------------
+GAP_MIN_PCT = _f("GAP_MIN_PCT", 3.0)     # smallest gap worth listing
+GAP_EARLY_MAX = _f("GAP_EARLY_MAX", 10.0)  # under this = still early
+GAP_RAN_PCT = _f("GAP_RAN_PCT", 20.0)    # over this = already ran
+GAP_MIN_VX = _f("GAP_MIN_VX", 0.15)      # volume so far as a share of a normal full day
+
+
+def gap_tier(pct: float | None, vx: float) -> str | None:
+    """EARLY = small gap on unusual volume (the ones to catch), GAPPED = moving, RAN = late."""
+    if pct is None or pct < GAP_MIN_PCT or vx < GAP_MIN_VX:
+        return None
+    if pct < GAP_EARLY_MAX:
+        return "EARLY"
+    if pct < GAP_RAN_PCT:
+        return "GAPPED"
+    return "RAN"
+
+
+def gapper_rows(uni, avgvol: dict[str, float], limit: int = 40) -> list[dict]:
+    rows = []
+    for t, co in uni.items():
+        avg = avgvol.get(t)
+        if not avg or avg < MIN_AVG_VOL or not co.price or not co.volume:
+            continue
+        if co.volume * co.price < MIN_DOLLAR_VOL:
+            continue
+        vx = co.volume / avg
+        tier = gap_tier(co.pct, vx)
+        if not tier:
+            continue
+        rows.append({"ticker": t, "name": co.name, "price": co.price, "mcap": co.mcap,
+                     "pct": round(co.pct, 1), "volume": co.volume, "vx": round(vx, 2), "tier": tier})
+    order = {"EARLY": 0, "GAPPED": 1, "RAN": 2}
+    rows.sort(key=lambda r: (order[r["tier"]], -r["vx"]))
+    return rows[:limit]
+
+
+def gap_signals(uni, avgvol: dict[str, float], now_et: datetime) -> list[Signal]:
+    """Pre-open and opening hour (04:00-10:30 ET): small gap + heavy volume, price not run yet."""
+    if now_et.weekday() >= 5:
+        return []
+    m = now_et.hour * 60 + now_et.minute
+    if not (4 * 60 <= m < 10 * 60 + 30):
+        return []
+    day = now_et.date().isoformat()
+    out: list[Signal] = []
+    for r in gapper_rows(uni, avgvol, limit=500):
+        if r["tier"] != "EARLY":
+            continue  # never alert on names that already gapped hard
+        t = r["ticker"]
+        text = (f"GAP +{r['pct']:.1f}% on {r['vx']:.0%} of a normal day's volume already, "
+                f"price ${r['price']:.2f}. Still early.")
+        url = f"https://finance.yahoo.com/quote/{t}"
+        out.append(Signal(t, "GAP", f"GAP:{t}:{day}:l", 2.0, text, url))
+        if r["vx"] >= 0.5:
+            out.append(Signal(t, "GAP", f"GAP:{t}:{day}:h", 1.0, "heavy pre-market volume bonus", url))
     return out
