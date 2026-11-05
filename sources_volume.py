@@ -123,11 +123,11 @@ def gapper_rows(uni, avgvol: dict[str, float], limit: int = 40) -> list[dict]:
 
 
 def gap_signals(uni, avgvol: dict[str, float], now_et: datetime) -> list[Signal]:
-    """Pre-open and opening hour (04:00-10:30 ET): small gap + heavy volume, price not run yet."""
+    """Pre-open/opening hour (04:00-10:30 ET) and after-hours (16:00-20:00): small move + heavy volume, price not run yet."""
     if now_et.weekday() >= 5:
         return []
     m = now_et.hour * 60 + now_et.minute
-    if not (4 * 60 <= m < 10 * 60 + 30):
+    if not (4 * 60 <= m < 10 * 60 + 30 or 16 * 60 <= m < 20 * 60):  # pre-market/open or after-hours
         return []
     day = now_et.date().isoformat()
     out: list[Signal] = []

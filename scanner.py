@@ -21,7 +21,7 @@ from common import (
     PUSH_MIN, SMS_MIN, _f, load_json, load_universe, log, money, name_index, notify, save_json,
     state_exists,
 )
-from sources_alpaca import refresh_quotes, tradable_symbols
+from sources_alpaca import fetch_techs, refresh_quotes, refresh_volumes, session_of, tradable_symbols
 from sources_awards import dod_signals, usaspending_signals
 from sources_news import edgar_signals, pr_signals
 from sources_volume import ET, gap_signals, gapper_rows, refresh_avgvol, volume_signals
@@ -192,7 +192,8 @@ def run(args) -> int:
         log(f"listed-only filter: kept {len(uni)} of {before}")
     idx = name_index(uni)
     log(f"universe: {len(uni)} tickers; first_run={first_run}")
-    refresh_quotes(uni)  # prices/volume from Alpaca delayed SIP (max ~15 min old); no-op without keys
+    refresh_quotes(uni, now_et=now_et)  # prices from Alpaca delayed SIP (max ~15 min old); no-op without keys
+    refresh_volumes(uni, now_et)        # today's pre-market/after-hours volume for the movers
 
     seen: dict = load_json("seen.json", {})
     sigs: list[dict] = load_json("signals.json", [])
@@ -250,6 +251,7 @@ def run(args) -> int:
     for s in sigs:
         by_t.setdefault(s["ticker"], []).append(s)
 
+    tech = fetch_techs(sorted({x.ticker for x in fresh}))  # chart reads for names with new signals
     sent = 0
     for t in sorted({s.ticker for s in fresh}):
         total, pos, neg = score(by_t[t], now)
@@ -269,6 +271,10 @@ def run(args) -> int:
         if total > 0:
             title, short = "EARLY " + title, "EARLY " + short
             long += f"\nEARLY: only {(uni[t].pct or 0):+.1f}% so far today (prices ~15 min delayed). Check the chart before acting."
+        tc = tech.get(t)
+        if tc:
+            long += (f"\nCHART: leans {tc['lean']} ({tc['score']:+d}), " + (f"RSI {tc['rsi']:.0f}, " if tc.get("rsi") else "")
+                     + f"20-day low ${tc['support']:.2f}, high ${tc['resistance']:.2f}. A lean is not a prediction.")
         if args.dry:
             log("[dry]", long)
         else:
@@ -302,12 +308,18 @@ def run(args) -> int:
                 ],
             })
         rows.sort(key=lambda r: -abs(r["score"]))
+        gaps = gapper_rows(uni, av["data"])
+        need = ({r["ticker"] for r in rows[:80]} | {g["ticker"] for g in gaps}) - set(tech)
+        tech.update(fetch_techs(sorted(need)))
+        for r in rows[:80] + gaps:
+            if r["ticker"] in tech:
+                r["tech"] = tech[r["ticker"]]
         os.makedirs("docs", exist_ok=True)
         with open("docs/dashboard.json", "w") as f:
             json.dump({
                 "generated": now.isoformat(), "health": health, "rows": rows[:80],
                 "queue": load_json("queue.json", [])[-10:],
-                "gappers": gapper_rows(uni, av["data"]),
+                "gappers": gaps, "session": session_of(now_et),
             }, f)
     force = "morning" if getattr(args, "brief", False) else "wrap" if getattr(args, "wrap", False) else None
     if not args.dry and (not first_run or force):

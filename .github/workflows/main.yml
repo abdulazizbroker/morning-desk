@@ -2,8 +2,9 @@ name: scanner
 
 on:
   schedule:
-    - cron: "*/15 10-19 * * 1-5"
-    - cron: "10,40 21-23 * * 1-5"
+    - cron: "*/15 9-23 * * 1-5"      # 4am-6pm Toronto: pre-market, open, after-hours
+    - cron: "*/15 0-1 * * 2-6"       # 7pm-9pm Toronto: late after-hours news
+    - cron: "10,40 2-8 * * 2-6"      # overnight: news and filings only (no price feed overnight)
   workflow_dispatch: {}
 
 concurrency:

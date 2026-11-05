@@ -149,4 +149,19 @@ _gs = gap_signals(_u, _av, _premkt)
 assert [s.ticker for s in _gs] == ["EAR"] and gap_signals(_u, _av, datetime(2026, 11, 4, 13, 0, tzinfo=ET)) == []
 assert stage_of(Co("A", "A", None, 1e7, 1, 1, 9.0), [_sig("GAP", 2)], 2)[0] == "EARLY"
 assert stage_of(Co("A", "A", None, 1e7, 1, 1, 12.0), [_sig("GAP", 2)], 2)[0] == "WATCH"
+from sources_alpaca import parse_snapshot as _ps, session_of, technicals
+_snap = {"latestTrade": {"p": 5.5}, "dailyBar": {"t": "2026-11-04T05:00:00Z", "c": 5.0, "v": 900}, "prevDailyBar": {"t": "2026-11-03T05:00:00Z", "c": 4.0}}
+_pre = datetime(2026, 11, 5, 7, 0, tzinfo=ET)      # next morning pre-market: daily bar is still yesterday's
+_p, _v, _g = _ps(_snap, _pre)
+assert abs(_g - 10.0) < 1e-9 and _v is None, (_g, _v)  # vs yesterday's close 5.0, not 4.0
+_open = datetime(2026, 11, 4, 11, 0, tzinfo=ET)
+_p, _v, _g = _ps(_snap, _open)
+assert abs(_g - 37.5) < 1e-9 and _v == 900, (_g, _v)   # regular session: vs previous close 4.0
+_aft = datetime(2026, 11, 4, 17, 0, tzinfo=ET)
+assert abs(_ps(_snap, _aft)[2] - 10.0) < 1e-9          # after-hours: vs today's close 5.0
+assert [session_of(datetime(2026, 11, 4, h, 0, tzinfo=ET)) for h in (3, 5, 10, 17, 21)] == ["closed", "pre", "regular", "after", "closed"]
+assert session_of(datetime(2026, 11, 7, 10, 0, tzinfo=ET)) == "closed"
+_up = [{"t": str(i), "h": (1 + .02 * i) * 1.01, "l": (1 + .02 * i) * .99, "c": 1 + .02 * i, "v": 1000 + 10 * i} for i in range(80)]
+_dn = [{"t": str(i), "h": (3 - .02 * i) * 1.01, "l": (3 - .02 * i) * .99, "c": 3 - .02 * i, "v": 1000} for i in range(80)]
+assert technicals(_up)["lean"] == "BULLISH" and technicals(_dn)["lean"] == "BEARISH" and technicals(_up[:10]) is None
 print("all offline tests passed")
