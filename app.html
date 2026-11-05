@@ -383,6 +383,9 @@ button { cursor: pointer; }
     ['SEC filings', 'https://www.sec.gov/cgi-bin/browse-edgar?action=getcompany&CIK=' + encodeURIComponent(t) + '&type=8-K&dateb=&owner=include&count=20'],
     ['Yahoo Finance', 'https://finance.yahoo.com/quote/' + encodeURIComponent(t)]
   ];
+  const RATE = { 'EARLY BUY': 'up', 'BUY': 'up', "DON'T BUY": 'down', 'SELL': 'down', 'WAIT': '' };
+  const ratingPill = r => r.rating ? `<span class="pill ${RATE[r.rating] ?? ''}"><b>${esc(r.rating)}</b></span>` : '';
+  const ratingLine = r => r.rating ? `<p class="mean"><b>${esc(r.rating)}:</b> ${esc(r.rating_why || '')}. Rule-based from the news, volume and chart. Not advice, and it can be wrong.</p>` : '';
   const techPill = t => t ? `<span class="pill ${t.lean === 'BULLISH' ? 'up' : t.lean === 'BEARISH' ? 'down' : ''}">Chart ${esc(t.lean.toLowerCase())}</span>` : '';
   const techLine = t => t ? `<p class="mean">Chart leans <b>${esc(t.lean.toLowerCase())}</b> (${t.score >= 0 ? '+' : ''}${t.score}): ${esc((t.notes || []).join(', '))}. Moves about ${t.atr_pct == null ? 'n/a' : t.atr_pct.toFixed(1) + '%'} a day. 20-day low ${px(t.support)}, 20-day high ${px(t.resistance)}. A lean is not a prediction.</p>` : '';
   function rowHtml(r) {
@@ -398,12 +401,13 @@ button { cursor: pointer; }
       <button class="row-head" type="button" aria-expanded="${isOpen}">
         <div class="tk"><b>${esc(r.ticker)}</b><span>${esc(r.name)}</span></div>
         <div class="sc"><span class="n ${r.score >= 0 ? 'up' : 'down'}">${r.score >= 0 ? '+' : ''}${r.score.toFixed(1)} ${r.score >= 0 ? 'bullish' : 'bearish'}</span><div class="meter ${r.score >= 0 ? 'pos' : 'neg'}" style="--v:${v}"><i></i></div></div>
-        <div class="setup">${su.label ? `<span class="pill ${su.cls}">${esc(su.label)}</span>` : ''} ${techPill(r.tech)}</div>
+        <div class="setup">${ratingPill(r)} ${su.label ? `<span class="pill ${su.cls}">${esc(su.label)}</span>` : ''} ${techPill(r.tech)}</div>
         <div class="px"><b>${px(r.price)}</b>${pct}${money(r.mcap)}</div>
         <svg class="chev" width="18" height="18" viewBox="0 0 20 20" fill="none" aria-hidden="true"><path d="m5 8 5 5 5-5" stroke="currentColor" stroke-width="2" stroke-linecap="round" stroke-linejoin="round"/></svg>
       </button>
       <div class="more"><div><div class="more-in">
         ${su.detail ? `<p class="mean">${esc(su.detail)}</p>` : ''}
+        ${ratingLine(r)}
         ${techLine(r.tech)}
         <ul class="sigs">${sigs}</ul>
         <div class="acts">${links(r.ticker).map(([n, h]) => `<a class="btn small" href="${esc(h)}" target="_blank" rel="noopener">${esc(n)}</a>`).join('')}
@@ -445,10 +449,10 @@ button { cursor: pointer; }
       <div class="row-head">
         <div class="tk"><b>${esc(g.ticker)}</b><span>${esc(g.name)}</span></div>
         <div class="sc"><span class="n up">+${(+g.pct).toFixed(1)}% gap</span></div>
-        <div class="setup"><span class="pill ${g.tier === 'EARLY' ? 'up' : ''}">${esc(tag)}</span> <span class="pill">${Math.round(g.vx * 100)}% of a normal day's volume</span> ${techPill(g.tech)}</div>
+        <div class="setup">${ratingPill(g)} <span class="pill ${g.tier === 'EARLY' ? 'up' : ''}">${esc(tag)}</span> <span class="pill">${Math.round(g.vx * 100)}% of a normal day's volume</span> ${techPill(g.tech)}</div>
         <div class="px"><b>${px(g.price)}</b>${money(g.mcap)}</div>
       </div>
-      <div style="padding:0 16px">${techLine(g.tech)}</div>
+      <div style="padding:0 16px">${ratingLine(g)}${techLine(g.tech)}</div>
       <div class="acts" style="padding:0 16px 14px">${links(g.ticker).map(([n, h]) => `<a class="btn small" href="${esc(h)}" target="_blank" rel="noopener">${esc(n)}</a>`).join('')}
         <button class="btn small primary" type="button" data-act="watch" data-t="${esc(g.ticker)}">Watch live</button></div>
     </article>`;

@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import sources_news
 from common import Co, find_by_name, name_index, norm
-from scanner import build_alert, direction, score, stage_of
+from scanner import build_alert, direction, gap_rating, rating_of, score, stage_of
 from sources_awards import award_pts, parse_dod
 from sources_news import classify, edgar_signals, extract_tickers
 from sources_volume import ET, session_fraction, volume_signals
@@ -164,4 +164,16 @@ assert session_of(datetime(2026, 11, 7, 10, 0, tzinfo=ET)) == "closed"
 _up = [{"t": str(i), "h": (1 + .02 * i) * 1.01, "l": (1 + .02 * i) * .99, "c": 1 + .02 * i, "v": 1000 + 10 * i} for i in range(80)]
 _dn = [{"t": str(i), "h": (3 - .02 * i) * 1.01, "l": (3 - .02 * i) * .99, "c": 3 - .02 * i, "v": 1000} for i in range(80)]
 assert technicals(_up)["lean"] == "BULLISH" and technicals(_dn)["lean"] == "BEARISH" and technicals(_up[:10]) is None
+_co = lambda pct: Co("A", "A", None, 1e7, 1, 1, pct)
+_bull, _bear = {"lean": "BULLISH"}, {"lean": "BEARISH"}
+assert rating_of(_co(1.0), [_sig("DOD", 5)], 5, 5, 0, _bull)[0] == "EARLY BUY"
+assert rating_of(_co(1.0), [_sig("DOD", 5)], 5, 5, 0, None)[0] == "EARLY BUY"
+assert rating_of(_co(1.0), [_sig("DOD", 5)], 5, 5, 0, _bear)[0] == "DON'T BUY"
+assert rating_of(_co(60.0), [_sig("DOD", 5)], 5, 5, 0, _bull)[0] == "DON'T BUY"
+assert rating_of(_co(1.0), [_sig("8K", -4)], -4, 0, -4, None)[0] == "SELL"
+assert rating_of(_co(12.0), [_sig("VOL", 3)], 3, 3, 0, _bull)[0] == "BUY"
+assert rating_of(_co(1.0), [_sig("PR", 2.5)], 2.5, 2.5, 0, None)[0] == "WAIT"
+assert rating_of(_co(1.0), [_sig("DOD", 5), _sig("8K", -3)], 2, 5, -3, _bull)[0] == "DON'T BUY"
+assert gap_rating({"tier": "EARLY", "pct": 5}, _bull)[0] == "EARLY BUY" and gap_rating({"tier": "EARLY", "pct": 5}, None)[0] == "WAIT"
+assert gap_rating({"tier": "RAN", "pct": 40}, _bull)[0] == "DON'T BUY" and gap_rating({"tier": "GAPPED", "pct": 14}, _bull)[0] == "WAIT"
 print("all offline tests passed")

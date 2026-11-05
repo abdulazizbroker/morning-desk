@@ -26,6 +26,7 @@ from sources_awards import dod_signals, usaspending_signals
 from sources_news import edgar_signals, pr_signals
 from sources_volume import ET, gap_signals, gapper_rows, refresh_avgvol, volume_signals
 
+EARLY_BUY_MIN = _f("EARLY_BUY_MIN", 4.0)    # score needed for an EARLY BUY label
 EARLY_MAX_PCT = _f("EARLY_MAX_PCT", 10.0)  # bullish pings only while the price is under this today
 AWARD_HOURS = {int(x) for x in os.getenv("AWARD_HOURS", "12,22").split(",") if x.strip()}  # UTC
 MAX_UNIVERSE = 4500
@@ -71,6 +72,41 @@ def stage_of(co, sigs: list[dict], total: float) -> tuple[str, float]:
         early = total + (1.0 if abs(pct) < 3 else 0.0) + (1.5 if stealth else 0.0) + (1.0 if gap else 0.0)
         return "EARLY", round(early, 1)
     return "WATCH", 0.0
+
+
+def rating_of(co, sigs: list[dict], total: float, pos: float, neg: float, tc: dict | None) -> tuple[str, str]:
+    """One simple label from news/volume score, price move so far and the chart read.
+    EARLY BUY / BUY / WAIT / DON'T BUY / SELL. Rule-based, not advice, not a prediction."""
+    pct = co.pct if co is not None and co.pct is not None else 0.0
+    lean = (tc or {}).get("lean")
+    stg, _ = stage_of(co, sigs, total)
+    if total <= -3 and lean != "BULLISH":
+        return "SELL", "Bearish news or dilution signals (matters if you hold it)"
+    if stg == "RUNNING":
+        return "DON'T BUY", f"Already up {pct:.0f}% so far. Chasing a move that already happened"
+    if stg == "AVOID" or neg <= -3:
+        return "DON'T BUY", "Bearish or dilution/distress signals"
+    if lean == "BEARISH":
+        return "DON'T BUY", "Chart is in a downtrend"
+    if stg == "EARLY" and total >= EARLY_BUY_MIN:
+        return "EARLY BUY", f"Strong signals and the price is only {pct:+.1f}% so far" + (", chart bullish" if lean == "BULLISH" else "")
+    if total >= 3 and lean == "BULLISH" and pct < 15:
+        return "BUY", "Strong signals and a bullish chart, but already moving"
+    return "WAIT", "Not enough confirmation yet"
+
+
+def gap_rating(g: dict, tc: dict | None) -> tuple[str, str]:
+    """Same labels for a gapper that has no news signal of its own."""
+    lean = (tc or {}).get("lean")
+    if g["tier"] == "RAN":
+        return "DON'T BUY", f"Already gapped {g['pct']:.0f}%. Late"
+    if lean == "BEARISH":
+        return "DON'T BUY", "Chart is in a downtrend"
+    if g["tier"] == "EARLY" and lean == "BULLISH":
+        return "EARLY BUY", f"Small {g['pct']:.1f}% gap on heavy volume, chart bullish"
+    if g["tier"] == "GAPPED":
+        return "WAIT", f"Already gapped {g['pct']:.0f}%. Wait for a pullback"
+    return "WAIT", "Heavy volume but no news or bullish chart yet"
 
 
 def setup_label(co, sigs, total, pos, neg) -> str:
@@ -264,17 +300,21 @@ def run(args) -> int:
             if age < 24 and same_sign and abs(total) - abs(last["score"]) < 1.5:
                 continue
         stg, _early = stage_of(uni.get(t), by_t[t], total)
-        if total > 0 and stg != "EARLY":  # never ping a bullish name that already ran or has no early trigger
+        rt = rating_of(uni.get(t), by_t[t], total, pos, neg, tech.get(t))
+        if total > 0 and (stg != "EARLY" or rt[0] not in ("EARLY BUY", "BUY")):  # never ping a bullish name that already ran or has no early trigger
             log(f"skip ping {t}: stage {stg}, +{(uni[t].pct or 0):.1f}% today" if t in uni else f"skip ping {t}")
             continue
         title, short, long = build_alert(t, uni.get(t), by_t[t], total, pos, neg, keys)
         if total > 0:
-            title, short = "EARLY " + title, "EARLY " + short
+            title, short = rt[0] + " " + title, rt[0] + " " + short
             long += f"\nEARLY: only {(uni[t].pct or 0):+.1f}% so far today (prices ~15 min delayed). Check the chart before acting."
+        if total <= 0:
+            title, short = rt[0] + " " + title, rt[0] + " " + short
         tc = tech.get(t)
         if tc:
             long += (f"\nCHART: leans {tc['lean']} ({tc['score']:+d}), " + (f"RSI {tc['rsi']:.0f}, " if tc.get("rsi") else "")
                      + f"20-day low ${tc['support']:.2f}, high ${tc['resistance']:.2f}. A lean is not a prediction.")
+        long += f"\nRATING: {rt[0]} - {rt[1]}. Rule-based, not advice, can be wrong."
         if args.dry:
             log("[dry]", long)
         else:
@@ -314,6 +354,15 @@ def run(args) -> int:
         for r in rows[:80] + gaps:
             if r["ticker"] in tech:
                 r["tech"] = tech[r["ticker"]]
+        by_row = {}
+        for r in rows[:80]:
+            sg = by_t[r["ticker"]]
+            tt, pp, nn = score(sg, now)
+            r["rating"], r["rating_why"] = rating_of(uni[r["ticker"]], sg, tt, pp, nn, r.get("tech"))
+            by_row[r["ticker"]] = r
+        for g in gaps:
+            r = by_row.get(g["ticker"])
+            g["rating"], g["rating_why"] = (r["rating"], r["rating_why"]) if r else gap_rating(g, g.get("tech"))
         os.makedirs("docs", exist_ok=True)
         with open("docs/dashboard.json", "w") as f:
             json.dump({
