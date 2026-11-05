@@ -233,7 +233,9 @@ button { cursor: pointer; }
           <input id="q" type="search" placeholder="Search a ticker or company" autocomplete="off" spellcheck="false" aria-label="Search a ticker or company">
         </label>
         <div class="chips" id="chips" role="group" aria-label="Filter">
-          <button class="chip" data-f="all" aria-pressed="true">All</button>
+          <button class="chip" data-f="early" aria-pressed="true">Early</button>
+          <button class="chip" data-f="running" aria-pressed="false">Already running</button>
+          <button class="chip" data-f="all" aria-pressed="false">All</button>
           <button class="chip" data-f="bull" aria-pressed="false">Bullish</button>
           <button class="chip" data-f="bear" aria-pressed="false">Bearish</button>
           <button class="chip" data-f="gov" aria-pressed="false">Contracts</button>
@@ -350,7 +352,7 @@ button { cursor: pointer; }
   window.addEventListener('hashchange', () => setTab(location.hash.slice(1)));
 
   /* ---------- scanner ---------- */
-  let DATA = null, filter = 'all', query = '';
+  let DATA = null, filter = 'early', query = '';
   const open = new Set();
   const GOV = ['AWARD', 'DOD'], NEWS = ['PR', '8K'];
   const kinds = r => r.signals.map(s => s.kind);
@@ -359,6 +361,8 @@ button { cursor: pointer; }
       const q = query.toLowerCase();
       if (!r.ticker.toLowerCase().includes(q) && !(r.name || '').toLowerCase().includes(q)) return false;
     }
+    if (filter === 'early') return r.stage === 'EARLY';
+    if (filter === 'running') return r.stage === 'RUNNING';
     if (filter === 'bull') return r.score > 0;
     if (filter === 'bear') return r.score < 0;
     if (filter === 'gov') return kinds(r).some(k => GOV.includes(k));
@@ -407,6 +411,7 @@ button { cursor: pointer; }
     const list = $('#list');
     if (!DATA) return;
     const rows = DATA.rows || [], shown = rows.filter(passes);
+    if (filter === 'early') shown.sort((a, b) => (b.early || 0) - (a.early || 0));
     const bull = rows.filter(r => r.score > 0).length, bear = rows.filter(r => r.score < 0).length;
     $('#summary').innerHTML = rows.length
       ? `<b>${bull}</b> bullish, <b>${bear}</b> bearish. Strongest: <b>${esc(rows[0].ticker)}</b> ${rows[0].score >= 0 ? '+' : ''}${rows[0].score.toFixed(1)}.`

@@ -85,3 +85,26 @@ def refresh_quotes(uni: dict, key: str | None = None, secret: str | None = None,
         time.sleep(0.35)  # stay far under the free plan's request limit
     log(f"alpaca ({feed}): refreshed {updated}/{len(tickers)} tickers" + (f", {failed} chunks failed" if failed else ""))
     return updated
+
+
+ASSETS_URL = "https://paper-api.alpaca.markets/v2/assets"
+LISTED = {"NASDAQ", "NYSE", "AMEX", "ARCA", "BATS", "NYSEARCA"}
+
+
+def tradable_symbols(key: str | None = None, secret: str | None = None) -> set[str] | None:
+    """Tickers that are active, tradable and on a real exchange (no OTC). None = could not check."""
+    key = key or os.getenv("ALPACA_KEY")
+    secret = secret or os.getenv("ALPACA_SECRET")
+    if not (key and secret):
+        return None
+    try:
+        r = requests.get(ASSETS_URL, timeout=60,
+                         headers={"APCA-API-KEY-ID": key, "APCA-API-SECRET-KEY": secret},
+                         params={"status": "active", "asset_class": "us_equity"})
+        r.raise_for_status()
+        out = {a["symbol"].replace(".", "-") for a in r.json()
+               if a.get("tradable") and (a.get("exchange") or "").upper() in LISTED}
+    except (requests.RequestException, ValueError, KeyError) as e:
+        log("alpaca assets unavailable:", e)
+        return None
+    return out or None

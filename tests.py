@@ -4,7 +4,7 @@ from datetime import datetime, timedelta, timezone
 
 import sources_news
 from common import Co, find_by_name, name_index, norm
-from scanner import build_alert, direction, score
+from scanner import build_alert, direction, score, stage_of
 from sources_awards import award_pts, parse_dod
 from sources_news import classify, edgar_signals, extract_tickers
 from sources_volume import ET, session_fraction, volume_signals
@@ -130,4 +130,12 @@ _p, _v, _pct = parse_snapshot({"latestTrade": {"p": 1.10}, "dailyBar": {"v": 500
 assert (_p, _v) == (1.10, 5000) and abs(_pct - 10.0) < 1e-9, (_p, _v, _pct)
 assert parse_snapshot({}) == (None, None, None)
 
+from common import JUNK_NAME
+assert JUNK_NAME.search("Acme Acquisition Corp Warrants") and JUNK_NAME.search("Acme Units")
+assert not JUNK_NAME.search("Unit Corporation Common Stock") and not JUNK_NAME.search("Zenith Photonics Corp.")
+_sig = lambda k, p, t="x": {"kind": k, "pts": p, "text": t}
+assert stage_of(Co("A", "A", None, 1e7, 1, 1, 1.0), [_sig("DOD", 4)], 4)[0] == "EARLY"
+assert stage_of(Co("A", "A", None, 1e7, 1, 1, 40.0), [_sig("DOD", 4)], 4)[0] == "RUNNING"
+assert stage_of(Co("A", "A", None, 1e7, 1, 1, 1.0), [_sig("8K", -3)], -3)[0] == "AVOID"
+assert stage_of(Co("A", "A", None, 1e7, 1, 1, 1.0), [_sig("VOL", 2)], 2)[0] == "WATCH"
 print("all offline tests passed")

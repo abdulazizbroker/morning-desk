@@ -21,7 +21,7 @@ from common import (
     PUSH_MIN, SMS_MIN, load_json, load_universe, log, money, name_index, notify, save_json,
     state_exists,
 )
-from sources_alpaca import refresh_quotes
+from sources_alpaca import refresh_quotes, tradable_symbols
 from sources_awards import dod_signals, usaspending_signals
 from sources_news import edgar_signals, pr_signals
 from sources_volume import ET, refresh_avgvol, volume_signals
@@ -52,6 +52,23 @@ def direction(total: float, pos: float, neg: float) -> str:
     if total < 0 and pos < 2:
         return "BEARISH"
     return "MIXED"
+
+
+def stage_of(co, sigs: list[dict], total: float) -> tuple[str, float]:
+    """EARLY = real catalyst news but the price has barely moved (the one you want to catch).
+    RUNNING = already up big (chasing). AVOID = bearish. WATCH = everything else.
+    Second value ranks the EARLY list: stronger catalyst + flatter price + heavy volume first."""
+    pct = co.pct if co is not None and co.pct is not None else 0.0
+    catalyst = any(s["kind"] in ("DOD", "AWARD", "PR", "8K") and s["pts"] > 0 for s in sigs)
+    stealth = any("STEALTH" in s["text"] for s in sigs)
+    if total <= -2:
+        return "AVOID", 0.0
+    if pct >= 15:
+        return "RUNNING", 0.0
+    if catalyst and total >= 2 and pct < 8:
+        early = total + (1.0 if abs(pct) < 3 else 0.0) + (1.5 if stealth else 0.0)
+        return "EARLY", round(early, 1)
+    return "WATCH", 0.0
 
 
 def setup_label(co, sigs, total, pos, neg) -> str:
@@ -166,6 +183,11 @@ def run(args) -> int:
     if not uni:
         log("empty universe")
         return 1
+    ok = tradable_symbols()  # drop anything not actively tradable on a real exchange
+    if ok:
+        before = len(uni)
+        uni = {t: c for t, c in uni.items() if t in ok}
+        log(f"listed-only filter: kept {len(uni)} of {before}")
     idx = name_index(uni)
     log(f"universe: {len(uni)} tickers; first_run={first_run}")
     refresh_quotes(uni)  # prices/volume from Alpaca delayed SIP (max ~15 min old); no-op without keys
@@ -259,7 +281,9 @@ def run(args) -> int:
             if abs(tot) < 1 or t not in uni:
                 continue
             co = uni[t]
+            stg, early = stage_of(co, v, tot)
             rows.append({
+                "stage": stg, "early": early,
                 "ticker": t, "name": co.name, "score": round(tot, 1), "dir": direction(tot, pos, neg),
                 "setup": setup_label(co, v, tot, pos, neg), "price": co.price, "mcap": co.mcap, "pct": co.pct,
                 "signals": [

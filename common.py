@@ -16,6 +16,10 @@ import requests
 ET = ZoneInfo("America/New_York")  # Toronto = New York time, so your 6am-2pm = 6:00-14:00 ET
 
 
+# Not plain common stock: warrants, rights, units, preferreds, ETFs. They cannot "boom" like a stock.
+JUNK_NAME = re.compile(r"\b(warrants?|rights|preferred|depositary shares|notes due|etf)\b|\bunits\b", re.I)
+
+
 def _f(name: str, default: float) -> float:
     try:
         return float(os.getenv(name, default))
@@ -248,6 +252,8 @@ def load_universe() -> dict[str, Co]:
             sym = (r.get("symbol") or "").strip().upper().replace("/", "-")
             mcap, price = _num(r.get("marketCap")), _num(r.get("lastsale"))
             if not sym or not mcap or not price:
+                continue
+            if JUNK_NAME.search(r.get("name") or ""):
                 continue
             if not (MIN_MCAP <= mcap <= MAX_MCAP) or price < MIN_PRICE:
                 continue
